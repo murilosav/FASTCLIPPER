@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "Twitch Clip Editor",
+  "version": "2.1.0",
+  "description": "Professional clip editor for Twitch streams with draggable interface and download capabilities",
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "src/background/background.js"
+  },
+  "host_permissions": [
+    "https://www.twitch.tv/*",
+    "https://clips.twitch.tv/*",
+    "https://*.twitchcdn.net/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.twitch.tv/*",
+        "https://clips.twitch.tv/*"
+      ],
+      "js": [
+        "src/shared/constants.js",
+        "src/shared/utils.js",
+        "src/editor/editorConstants.js",
+        "src/editor/videoProcessor.js",
+        "src/modules/clipDetector.js",
+        "src/modules/twitchPopupManager.js",
+        "src/modules/videoDownloader.js",
+        "src/editor/selectionController.js",
+        "src/editor/frameRecorder.js",
+        "src/editor/previewRenderer.js",
+        "src/editor/videoEditor.js",
+        "src/popup/popup.js",
+        "src/popup/popupManagerV2.js",
+        "src/content/content.js"
+      ],
+      "css": [
+        "src/popup/popup.css",
+        "src/popup/popupEnhanced.css",
+        "src/editor/videoEditor.css"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "downloads",
+    "unlimitedStorage",
+    "webRequest"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["*.mp4"],
+      "matches": ["https://www.twitch.tv/*", "https://clips.twitch.tv/*", "https://*.twitchcdn.net/*"]
+    }
+  ]
+}
