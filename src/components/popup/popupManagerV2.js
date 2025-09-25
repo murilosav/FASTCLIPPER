@@ -15,11 +15,11 @@ class PopupManagerV2 extends PopupManager {
      * Create popup with advanced editor option
      * @param {string} videoSrc - Video source URL
      */
-    createPopup(videoSrc) {
+    async createPopup(videoSrc) {
         this.removeExistingPopup();
         this.currentVideo = videoSrc;
         
-        const popup = this.buildEnhancedPopupElement(videoSrc);
+        const popup = await this.buildEnhancedPopupElement(videoSrc);
         this.popup = popup;
         
         document.body.appendChild(popup);
@@ -36,64 +36,31 @@ class PopupManagerV2 extends PopupManager {
      * @param {string} videoSrc - Video source URL
      * @returns {Element}
      */
-    buildEnhancedPopupElement(videoSrc) {
+    async buildEnhancedPopupElement(videoSrc) {
         const popup = this.utils.DOMUtils.createElement('div', {
             id: this.constants.EXTENSION_CONFIG.POPUP_ID,
             className: this.constants.CSS_CLASSES.POPUP
         });
 
-        popup.innerHTML = `
-            <div class="clip-editor-header" id="${this.constants.EXTENSION_CONFIG.DRAG_HANDLE_ID}">
-                <div class="clip-editor-title">Clip Editor</div>
-                <div class="clip-editor-version">v${this.constants.EXTENSION_CONFIG.VERSION}</div>
-            </div>
-            <div class="clip-editor-content">
-                <div class="clip-editor-video-container">
-                    <video 
-                        class="clip-editor-video" 
-                        src="${videoSrc}" 
-                        controls 
-                        preload="metadata"
-                        playsinline
-                        style="display: none;"
-                    ></video>
-                </div>
-                
-                <div class="editor-mode-selector">
-                    <h4>Choose editing mode:</h4>
-                    <div class="mode-buttons">
-                        <button class="mode-btn simple-mode active" id="simple-mode">
-                            <span class="icon">📹</span>
-                            <span class="title">Simple Mode</span>
-                            <span class="description">Download video as-is</span>
-                        </button>
-                        <button class="mode-btn advanced-mode" id="advanced-mode">
-                            <span class="icon">🎬</span>
-                            <span class="title">Advanced Editor</span>
-                            <span class="description">Crop to 9:16 with motion recording</span>
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="clip-editor-controls" id="simple-controls">
-                    <button class="clip-editor-button close" id="close-editor">
-                        <span>✕</span> Close
-                    </button>
-                    <button class="clip-editor-button download" id="download-clip">
-                        <span>⬇</span> Download
-                    </button>
-                </div>
-                
-                <div class="clip-editor-controls" id="advanced-controls" style="display: none;">
-                    <button class="clip-editor-button secondary" id="back-to-simple">
-                        <span>←</span> Back
-                    </button>
-                    <button class="clip-editor-button primary" id="open-editor">
-                        <span>🎬</span> Open Advanced Editor
-                    </button>
-                </div>
-            </div>
-        `;
+        try {
+            const htmlPath = chrome.runtime.getURL('src/components/popup/popup.html');
+            const response = await fetch(htmlPath);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch HTML: ${response.statusText}`);
+            }
+            let htmlContent = await response.text();
+
+            // Replace placeholders
+            htmlContent = htmlContent
+                .replace('${this.constants.EXTENSION_CONFIG.DRAG_HANDLE_ID}', this.constants.EXTENSION_CONFIG.DRAG_HANDLE_ID)
+                .replace('${this.constants.EXTENSION_CONFIG.VERSION}', this.constants.EXTENSION_CONFIG.VERSION)
+                .replace('${videoSrc}', videoSrc);
+
+            popup.innerHTML = htmlContent;
+        } catch (error) {
+            this.utils.Logger.error('Failed to load popup interface:', error);
+            popup.innerHTML = '<p>Error loading popup. Please try again.</p>';
+        }
 
         return popup;
     }

@@ -1,0 +1,133 @@
+
+            <div class="editor-header">
+                <h3>🎬 Advanced Clip Editor</h3>
+                <div class="editor-header-controls">
+                    <button class="upload-video-btn" id="upload-video-btn" title="Upload Video File">
+                        <span class="icon">📁</span>
+                        <span class="text">Upload Video</span>
+                    </button>
+                    <div class="editor-mode-indicator">
+                        <span class="mode-text">Preview Mode</span>
+                        <div class="recording-indicator hidden">🔴 REC</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hidden file input -->
+            <input type="file" 
+                id="video-file-input" 
+                accept="video/mp4,video/webm,video/ogg,video/*" 
+                style="display: none;">
+            
+            <div class="editor-main">
+                <div class="editor-left-panel">
+                    <div class="landscape-video-container drop-zone" id="drop-zone">
+                        <canvas class="${this.cssClasses.LANDSCAPE_CANVAS}" 
+                                width="${this.constants.CANVAS.MAX_WIDTH}" 
+                                height="${this.constants.CANVAS.MAX_HEIGHT}">
+                        </canvas>
+                        <div class="video-overlay">
+                            <div class="selection-info">
+                                <span class="coordinates">X: 0, Y: 0</span>
+                                <span class="dimensions">W: 0, H: 0</span>
+                                <span class="zoom-level">Zoom: 100%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Drop overlay -->
+                        <div class="drop-overlay" id="drop-overlay">
+                            <div class="drop-content">
+                                <div class="drop-icon">📁</div>
+                                <div class="drop-text">Drop video file here</div>
+                                <div class="drop-formats">MP4, WebM, MOV supported</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="editor-timeline-container">
+                        <div class="${this.cssClasses.TIMELINE}">
+                            <div class="timeline-track">
+                                <div class="timeline-progress"></div>
+                                <div class="timeline-scrubber"></div>
+                                <div class="keyframes-container"></div>
+                            </div>
+                            <div class="timeline-time">
+                                <span class="current-time">00:00</span>
+                                <span class="duration">/ 00:00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="editor-right-panel">
+                    <div class="preview-container">
+                        <h4>Portrait Preview (9:16)</h4>
+                        <div class="preview-canvas-container">
+                            <!-- Preview canvas will be inserted here -->
+                        </div>
+                        <div class="preview-info">
+                            <div class="export-resolution">1080 x 1920</div>
+                            <div class="preview-fps">30 FPS</div>
+                        </div>
+                    </div>
+                    
+                    <div class="editor-controls-panel">
+                        <div class="playback-controls">
+                            <button class="control-btn play-pause-btn" title="Play/Pause">
+                                <span class="icon">▶️</span>
+                            </button>
+                            <button class="control-btn stop-btn" title="Stop">
+                                <span class="icon">⏹️</span>
+                            </button>
+                            <button class="control-btn restart-btn" title="Restart">
+                                <span class="icon">⏮️</span>
+                            </button>
+                        </div>
+                        
+                        <div class="recording-controls">
+                            <button class="control-btn record-btn" title="Start/Stop Recording">
+                                <span class="icon">⏺️</span>
+                                <span class="text">Record Motion</span>
+                            </button>
+                        </div>
+                        
+                        <div class="export-controls">
+                            <button class="control-btn export-btn" title="Export Video">
+                                <span class="icon">📥</span>
+                                <span class="text">Export 9:16</span>
+                            </button>
+                            <button class="control-btn download-original-btn" title="Download Original">
+                                <span class="icon">💾</span>
+                                <span class="text">Download Original</span>
+                            </button>
+                        </div>
+                        
+                        <div class="editor-stats">
+                            <div class="stat-item">
+                                <span class="label">Keyframes:</span>
+                                <span class="value keyframes-count">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="label">Duration:</span>
+                                <span class="value recording-duration">00:00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="editor-instructions">
+                <div class="instruction-item">
+                    <strong>🖱️ Drag:</strong> Move selection area
+                </div>
+                <div class="instruction-item">
+                    <strong>🔍 Scroll:</strong> Zoom in/out
+                </div>
+                <div class="instruction-item">
+                    <strong>⏺️ Record:</strong> Capture motion while playing
+                </div>
+                <div class="instruction-item">
+                    <strong>📱 Preview:</strong> Real-time 9:16 result
+                </div>
+            </div>
+        

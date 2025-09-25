@@ -56,7 +56,7 @@ class VideoEditor {
             this.utils.Logger.info('Initializing Video Editor...');
 
             await this.setupVideo();
-            this.createInterface();
+            await this.createInterface();
             this.initializeModules();
             this.attachEventListeners();
 
@@ -66,7 +66,7 @@ class VideoEditor {
         } catch (error) {
             this.utils.Logger.error('Failed to initialize Video Editor:', error);
             this.showCapabilityWarning(); // Inform user of limited functionality
-            this.createInterface(); // Proceed with interface even if video fails
+            await this.createInterface(); // Proceed with interface even if video fails
             this.initializeModules();
             this.attachEventListeners();
             this.isInitialized = true; // Mark as initialized with limitations
@@ -159,12 +159,7 @@ class VideoEditor {
      */
     showCapabilityWarning() {
         const warning = document.createElement('div');
-        warning.style.cssText = `
-            position: fixed; top: 20px; right: 20px; 
-            background: rgba(255, 193, 7, 0.9); color: #000;
-            padding: 12px 16px; border-radius: 8px; z-index: 9999999;
-            font-size: 14px; font-weight: 500; max-width: 300px;
-        `;
+        warning.className = 'capability-warning';
         warning.innerHTML = `
             ⚠️ Limited Mode: Video manipulation restricted due to CORS policies. 
             Interface fully functional for testing.
@@ -185,45 +180,17 @@ class VideoEditor {
         // Create progress indicator
         const progressDiv = document.createElement('div');
         progressDiv.id = 'video-download-progress';
-        progressDiv.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 30px 40px;
-            border-radius: 12px;
-            z-index: 9999999;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            text-align: center;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        `;
         
         progressDiv.innerHTML = `
             <div style="font-size: 18px; margin-bottom: 15px;">
                 📥 ${message}
             </div>
             <div style="width: 200px; height: 4px; background: #333; border-radius: 2px; overflow: hidden;">
-                <div class="progress-bar" style="
-                    width: 0%; 
-                    height: 100%; 
-                    background: linear-gradient(90deg, #00D4FF, #0099CC);
-                    border-radius: 2px;
-                    animation: progressPulse 2s ease-in-out infinite;
-                "></div>
+                <div class="progress-bar"></div>
             </div>
             <div style="margin-top: 12px; font-size: 14px; color: #ccc;">
                 Please wait...
             </div>
-            <style>
-                @keyframes progressPulse {
-                    0%, 100% { width: 0%; }
-                    50% { width: 100%; }
-                }
-            </style>
         `;
         
         document.body.appendChild(progressDiv);
@@ -316,12 +283,25 @@ class VideoEditor {
     /**
      * Create the main interface
      */
-    createInterface() {
+    async createInterface() {
         // Create main container
         this.container = this.utils.DOMUtils.createElement('div', {
             className: this.cssClasses.EDITOR_CONTAINER,
-            innerHTML: this.generateInterfaceHTML()
         });
+
+        try {
+            const htmlPath = chrome.runtime.getURL('src/components/editor/videoEditor.html');
+            const response = await fetch(htmlPath);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch HTML: ${response.statusText}`);
+            }
+            const htmlContent = await response.text();
+            this.container.innerHTML = htmlContent;
+        } catch (error) {
+            this.utils.Logger.error('Failed to load editor interface:', error);
+            this.container.innerHTML = '<p>Error loading editor interface. Please try again.</p>';
+            return;
+        }
         
         // Get references to UI elements
         this.setupUIReferences();
@@ -330,145 +310,7 @@ class VideoEditor {
         this.setupCanvas();
     }
 
-    /**
-     * Generate interface HTML - FIXED VERSION
-     * @returns {string} Interface HTML
-     */
-    generateInterfaceHTML() {
-        return `
-            <div class="editor-header">
-                <h3>🎬 Advanced Clip Editor</h3>
-                <div class="editor-header-controls">
-                    <button class="upload-video-btn" id="upload-video-btn" title="Upload Video File">
-                        <span class="icon">📁</span>
-                        <span class="text">Upload Video</span>
-                    </button>
-                    <div class="editor-mode-indicator">
-                        <span class="mode-text">Preview Mode</span>
-                        <div class="recording-indicator hidden">🔴 REC</div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Hidden file input -->
-            <input type="file" 
-                id="video-file-input" 
-                accept="video/mp4,video/webm,video/ogg,video/*" 
-                style="display: none;">
-            
-            <div class="editor-main">
-                <div class="editor-left-panel">
-                    <div class="landscape-video-container drop-zone" id="drop-zone">
-                        <canvas class="${this.cssClasses.LANDSCAPE_CANVAS}" 
-                                width="${this.constants.CANVAS.MAX_WIDTH}" 
-                                height="${this.constants.CANVAS.MAX_HEIGHT}">
-                        </canvas>
-                        <div class="video-overlay">
-                            <div class="selection-info">
-                                <span class="coordinates">X: 0, Y: 0</span>
-                                <span class="dimensions">W: 0, H: 0</span>
-                                <span class="zoom-level">Zoom: 100%</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Drop overlay -->
-                        <div class="drop-overlay" id="drop-overlay">
-                            <div class="drop-content">
-                                <div class="drop-icon">📁</div>
-                                <div class="drop-text">Drop video file here</div>
-                                <div class="drop-formats">MP4, WebM, MOV supported</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="editor-timeline-container">
-                        <div class="${this.cssClasses.TIMELINE}">
-                            <div class="timeline-track">
-                                <div class="timeline-progress"></div>
-                                <div class="timeline-scrubber"></div>
-                                <div class="keyframes-container"></div>
-                            </div>
-                            <div class="timeline-time">
-                                <span class="current-time">00:00</span>
-                                <span class="duration">/ 00:00</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="editor-right-panel">
-                    <div class="preview-container">
-                        <h4>Portrait Preview (9:16)</h4>
-                        <div class="preview-canvas-container">
-                            <!-- Preview canvas will be inserted here -->
-                        </div>
-                        <div class="preview-info">
-                            <div class="export-resolution">1080 x 1920</div>
-                            <div class="preview-fps">30 FPS</div>
-                        </div>
-                    </div>
-                    
-                    <div class="editor-controls-panel">
-                        <div class="playback-controls">
-                            <button class="control-btn play-pause-btn" title="Play/Pause">
-                                <span class="icon">▶️</span>
-                            </button>
-                            <button class="control-btn stop-btn" title="Stop">
-                                <span class="icon">⏹️</span>
-                            </button>
-                            <button class="control-btn restart-btn" title="Restart">
-                                <span class="icon">⏮️</span>
-                            </button>
-                        </div>
-                        
-                        <div class="recording-controls">
-                            <button class="control-btn record-btn" title="Start/Stop Recording">
-                                <span class="icon">⏺️</span>
-                                <span class="text">Record Motion</span>
-                            </button>
-                        </div>
-                        
-                        <div class="export-controls">
-                            <button class="control-btn export-btn" title="Export Video">
-                                <span class="icon">📥</span>
-                                <span class="text">Export 9:16</span>
-                            </button>
-                            <button class="control-btn download-original-btn" title="Download Original">
-                                <span class="icon">💾</span>
-                                <span class="text">Download Original</span>
-                            </button>
-                        </div>
-                        
-                        <div class="editor-stats">
-                            <div class="stat-item">
-                                <span class="label">Keyframes:</span>
-                                <span class="value keyframes-count">0</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="label">Duration:</span>
-                                <span class="value recording-duration">00:00</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="editor-instructions">
-                <div class="instruction-item">
-                    <strong>🖱️ Drag:</strong> Move selection area
-                </div>
-                <div class="instruction-item">
-                    <strong>🔍 Scroll:</strong> Zoom in/out
-                </div>
-                <div class="instruction-item">
-                    <strong>⏺️ Record:</strong> Capture motion while playing
-                </div>
-                <div class="instruction-item">
-                    <strong>📱 Preview:</strong> Real-time 9:16 result
-                </div>
-            </div>
-        `;
-    }
 
     /**
      * Setup UI element references - FIXED
@@ -868,13 +710,7 @@ class VideoEditor {
      */
     showError(message) {
         const errorDiv = document.createElement('div');
-        errorDiv.style.cssText = `
-            position: fixed; top: 20px; right: 20px; 
-            background: rgba(220, 53, 69, 0.9); color: white;
-            padding: 12px 16px; border-radius: 8px; z-index: 9999999;
-            font-size: 14px; font-weight: 500; max-width: 300px;
-            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-        `;
+        errorDiv.className = 'error-message';
         errorDiv.innerHTML = `❌ ${message}`;
         document.body.appendChild(errorDiv);
         

@@ -25,23 +25,23 @@
       "js": [
         "src/shared/constants.js",
         "src/shared/utils.js",
-        "src/editor/editorConstants.js",
-        "src/editor/videoProcessor.js",
-        "src/modules/clipDetector.js",
-        "src/modules/twitchPopupManager.js",
-        "src/modules/videoDownloader.js",
-        "src/editor/selectionController.js",
-        "src/editor/frameRecorder.js",
-        "src/editor/previewRenderer.js",
-        "src/editor/videoEditor.js",
-        "src/popup/popup.js",
-        "src/popup/popupManagerV2.js",
+        "src/components/editor/editorConstants.js",
+        "src/services/videoProcessor.js",
+        "src/features/clipDetector.js",
+        "src/features/twitchPopupManager.js",
+        "src/services/videoDownloader.js",
+        "src/components/editor/selectionController.js",
+        "src/components/editor/frameRecorder.js",
+        "src/components/editor/previewRenderer.js",
+        "src/components/editor/videoEditor.js",
+        "src/components/popup/popup.js",
+        "src/components/popup/popupManagerV2.js",
         "src/content/content.js"
       ],
       "css": [
-        "src/popup/popup.css",
-        "src/popup/popupEnhanced.css",
-        "src/editor/videoEditor.css"
+        "src/components/popup/popup.css",
+        "src/components/popup/popupEnhanced.css",
+        "src/components/editor/videoEditor.css"
       ],
       "run_at": "document_end"
     }
@@ -55,7 +55,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["*.mp4"],
+      "resources": ["*.mp4", "src/components/editor/videoEditor.html", "src/components/popup/popup.html"],
       "matches": ["https://www.twitch.tv/*", "https://clips.twitch.tv/*", "https://*.twitchcdn.net/*"]
     }
   ]

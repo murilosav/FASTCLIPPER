@@ -1423,3 +1423,65 @@ select.form-control {
     width: 0%;
     transition: width 0.3s ease;
 }
+
+/* Capability Warning */
+.capability-warning {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 193, 7, 0.9);
+    color: #000;
+    padding: 12px 16px;
+    border-radius: 8px;
+    z-index: 9999999;
+    font-size: 14px;
+    font-weight: 500;
+    max-width: 300px;
+}
+
+/* Download Progress */
+#video-download-progress {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 30px 40px;
+    border-radius: 12px;
+    z-index: 9999999;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#video-download-progress .progress-bar {
+    width: 0%; 
+    height: 100%; 
+    background: linear-gradient(90deg, #00D4FF, #0099CC);
+    border-radius: 2px;
+    animation: progressPulse 2s ease-in-out infinite;
+}
+
+@keyframes progressPulse {
+    0%, 100% { width: 0%; }
+    50% { width: 100%; }
+}
+
+/* Error Message */
+.error-message {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(220, 53, 69, 0.9);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    z-index: 9999999;
+    font-size: 14px;
+    font-weight: 500;
+    max-width: 300px;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
