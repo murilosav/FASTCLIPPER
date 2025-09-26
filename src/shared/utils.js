@@ -117,6 +117,56 @@ const DOMUtils = {
         }
         
         return element;
+    },
+
+    makeInteractive: (element, handleSelector) => {
+        const handle = element.querySelector(handleSelector);
+        if (!handle) return;
+
+        let isDragging = false;
+        let isResizing = false;
+        let offsetX, offsetY, startX, startY, startWidth, startHeight;
+
+        // Dragging logic
+        handle.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            offsetX = e.clientX - element.getBoundingClientRect().left;
+            offsetY = e.clientY - element.getBoundingClientRect().top;
+            element.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+
+        // Resizing logic
+        const resizer = DOMUtils.createElement('div', { className: 'resizer' });
+        element.appendChild(resizer);
+
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startWidth = parseInt(document.defaultView.getComputedStyle(element).width, 10);
+            startHeight = parseInt(document.defaultView.getComputedStyle(element).height, 10);
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                element.style.left = `${e.clientX - offsetX}px`;
+                element.style.top = `${e.clientY - offsetY}px`;
+            }
+            if (isResizing) {
+                const newWidth = startWidth + (e.clientX - startX);
+                const newHeight = startHeight + (e.clientY - startY);
+                element.style.width = `${newWidth}px`;
+                element.style.height = `${newHeight}px`;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            isResizing = false;
+            element.style.cursor = 'default';
+        });
     }
 };
 

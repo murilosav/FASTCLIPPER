@@ -291,6 +291,12 @@ class TwitchClipEditor {
 
 // Initialize the extension when DOM is ready
 function initializeExtension() {
+    // --- Singleton Lock ---
+    if (window.twitchClipEditorInitialized) {
+        return;
+    }
+    window.twitchClipEditorInitialized = true;
+
     // Check if all dependencies are loaded
     if (!window.TWITCH_CLIP_EDITOR_CONSTANTS || 
         !window.TWITCH_CLIP_EDITOR_UTILS ||
@@ -299,7 +305,8 @@ function initializeExtension() {
         !window.VideoDownloader ||
         !window.TwitchPopupManager) {
         
-        // Retry after a short delay
+        // Reset lock and retry
+        window.twitchClipEditorInitialized = false;
         setTimeout(initializeExtension, 100);
         return;
     }

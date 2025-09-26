@@ -308,6 +308,9 @@ class VideoEditor {
         
         // Setup canvas
         this.setupCanvas();
+
+        // Make the editor interactive
+        this.utils.DOMUtils.makeInteractive(this.container, '.editor-header');
     }
 
 
@@ -331,7 +334,8 @@ class VideoEditor {
             restart: this.container.querySelector('.restart-btn'),
             record: this.container.querySelector('.record-btn'),
             export: this.container.querySelector('.export-btn'),
-            downloadOriginal: this.container.querySelector('.download-original-btn')
+            downloadOriginal: this.container.querySelector('.download-original-btn'),
+            close: this.container.querySelector('.editor-close-btn')
         };
         
         // Get info elements
@@ -447,6 +451,7 @@ class VideoEditor {
         this.controls.record?.addEventListener('click', this.handleRecord);
         this.controls.export?.addEventListener('click', this.handleExport);
         this.controls.downloadOriginal?.addEventListener('click', this.handleDownloadOriginal.bind(this));
+        this.controls.close?.addEventListener('click', this.cleanup.bind(this));
         
         // Timeline events
         this.timeline.track?.addEventListener('click', this.handleTimelineClick.bind(this));

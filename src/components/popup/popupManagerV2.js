@@ -16,7 +16,13 @@ class PopupManagerV2 extends PopupManager {
      * @param {string} videoSrc - Video source URL
      */
     async createPopup(videoSrc) {
-        this.removeExistingPopup();
+        // --- DOM check to prevent duplicates ---
+        if (document.getElementById(this.constants.EXTENSION_CONFIG.POPUP_ID)) {
+            this.utils.Logger.warn('Popup creation aborted: Popup already exists.');
+            return;
+        }
+
+        this.removeExistingPopup(); // This is still useful to clean up any old state
         this.currentVideo = videoSrc;
         
         const popup = await this.buildEnhancedPopupElement(videoSrc);
