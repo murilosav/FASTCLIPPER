@@ -36,19 +36,28 @@ class SelectionController {
      * Initialize default selection position and size
      */
     initializeSelection() {
-        const canvasRect = this.canvas.getBoundingClientRect();
-        const defaultWidth = canvasRect.width * this.constants.SELECTION.DEFAULT_WIDTH_PERCENT;
-        const defaultHeight = canvasRect.height * this.constants.SELECTION.DEFAULT_HEIGHT_PERCENT;
+        const targetAspect = 9 / 16;
+        const canvasHeight = this.canvas.height;
+        const canvasWidth = this.canvas.width;
+
+        let selHeight = canvasHeight;
+        let selWidth = selHeight * targetAspect;
+
+        if (selWidth > canvasWidth) {
+            selWidth = canvasWidth;
+            selHeight = selWidth / targetAspect;
+        }
         
         this.selection = {
-            x: (canvasRect.width - defaultWidth) / 2,
-            y: (canvasRect.height - defaultHeight) / 2,
-            width: defaultWidth,
-            height: defaultHeight,
+            x: (canvasWidth - selWidth) / 2,
+            y: (canvasHeight - selHeight) / 2,
+            width: selWidth,
+            height: selHeight,
             zoom: 1.0
         };
         
         this.drawSelection();
+        this.editor.onSelectionChanged(this.getSelectionData());
     }
 
     /**
@@ -80,24 +89,17 @@ class SelectionController {
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
         
-        // Check if clicking on resize handle
-        const handle = this.getResizeHandle(x, y);
-        if (handle) {
-            this.isResizing = true;
-            this.resizeHandle = handle;
-            return;
-        }
-        
-        // Check if clicking inside selection for dragging
         if (this.isInsideSelection(x, y)) {
             this.isDragging = true;
-            this.dragStart = { x, y };
+            this.dragStart = { 
+                x: x - this.selection.x, 
+                y: y - this.selection.y 
+            };
         }
     }
 
     /**
      * Handle mouse move event
-     * @param {MouseEvent} event - Mouse event
      */
     handleMouseMove(event) {
         const rect = this.canvas.getBoundingClientRect();
@@ -105,9 +107,12 @@ class SelectionController {
         const y = event.clientY - rect.top;
         
         if (this.isDragging) {
-            this.handleDrag(x, y);
-        } else if (this.isResizing) {
-            this.handleResize(x, y);
+            this.selection.x = x - this.dragStart.x;
+            this.selection.y = y - this.dragStart.y;
+            
+            this.constrainToCanvas();
+            this.drawSelection();
+            this.editor.onSelectionChanged(this.getSelectionData());
         } else {
             this.updateCursor(x, y);
         }
@@ -117,19 +122,11 @@ class SelectionController {
      * Handle mouse up event
      */
     handleMouseUp() {
-        if (this.isDragging || this.isResizing) {
-            this.isDragging = false;
-            this.isResizing = false;
-            this.resizeHandle = null;
-            
-            // Notify editor of selection change
-            this.editor.onSelectionChanged(this.getSelectionData());
-        }
+        this.isDragging = false;
     }
 
     /**
      * Handle wheel event for zooming
-     * @param {WheelEvent} event - Wheel event
      */
     handleWheel(event) {
         event.preventDefault();
@@ -148,7 +145,6 @@ class SelectionController {
 
     /**
      * Handle touch start event
-     * @param {TouchEvent} event - Touch event
      */
     handleTouchStart(event) {
         event.preventDefault();
@@ -162,7 +158,6 @@ class SelectionController {
 
     /**
      * Handle touch move event
-     * @param {TouchEvent} event - Touch event
      */
     handleTouchMove(event) {
         event.preventDefault();
@@ -183,83 +178,31 @@ class SelectionController {
     }
 
     /**
-     * Handle dragging of selection
-     * @param {number} x - Current x position
-     * @param {number} y - Current y position
-     */
-    handleDrag(x, y) {
-        const deltaX = x - this.dragStart.x;
-        const deltaY = y - this.dragStart.y;
-        
-        const newX = Math.max(0, Math.min(this.canvas.width - this.selection.width, this.selection.x + deltaX));
-        const newY = Math.max(0, Math.min(this.canvas.height - this.selection.height, this.selection.y + deltaY));
-        
-        this.selection.x = newX;
-        this.selection.y = newY;
-        this.dragStart = { x, y };
-        
-        this.drawSelection();
-    }
-
-    /**
-     * Handle resizing of selection
-     * @param {number} x - Current x position
-     * @param {number} y - Current y position
-     */
-    handleResize(x, y) {
-        const minSize = this.constants.SELECTION.MIN_WIDTH;
-        
-        switch (this.resizeHandle) {
-            case 'se': // Southeast corner
-                this.selection.width = Math.max(minSize, x - this.selection.x);
-                this.selection.height = Math.max(minSize, y - this.selection.y);
-                break;
-            case 'sw': // Southwest corner
-                const newWidth = this.selection.x + this.selection.width - x;
-                if (newWidth >= minSize) {
-                    this.selection.width = newWidth;
-                    this.selection.x = x;
-                }
-                this.selection.height = Math.max(minSize, y - this.selection.y);
-                break;
-            case 'ne': // Northeast corner
-                this.selection.width = Math.max(minSize, x - this.selection.x);
-                const newHeight = this.selection.y + this.selection.height - y;
-                if (newHeight >= minSize) {
-                    this.selection.height = newHeight;
-                    this.selection.y = y;
-                }
-                break;
-            case 'nw': // Northwest corner
-                const newWidthNW = this.selection.x + this.selection.width - x;
-                const newHeightNW = this.selection.y + this.selection.height - y;
-                if (newWidthNW >= minSize) {
-                    this.selection.width = newWidthNW;
-                    this.selection.x = x;
-                }
-                if (newHeightNW >= minSize) {
-                    this.selection.height = newHeightNW;
-                    this.selection.y = y;
-                }
-                break;
-        }
-        
-        // Constrain to canvas bounds
-        this.constrainToCanvas();
-        this.drawSelection();
-    }
-
-    /**
      * Apply zoom to selection
-     * @param {number} newZoom - New zoom level
      */
     applyZoom(newZoom) {
-        const zoomRatio = newZoom / this.selection.zoom;
+        const targetAspect = 9 / 16;
         const centerX = this.selection.x + this.selection.width / 2;
         const centerY = this.selection.y + this.selection.height / 2;
+
+        const zoomRatio = newZoom / this.selection.zoom;
+
+        let newWidth = this.selection.width * zoomRatio;
+        let newHeight = this.selection.height * zoomRatio;
+
+        // Constrain to canvas max size while maintaining aspect ratio
+        if (newWidth > this.canvas.width || newHeight > this.canvas.height) {
+            if (this.canvas.width / targetAspect <= this.canvas.height) {
+                newWidth = this.canvas.width;
+                newHeight = newWidth / targetAspect;
+            } else {
+                newHeight = this.canvas.height;
+                newWidth = newHeight * targetAspect;
+            }
+        }
         
-        this.selection.width *= zoomRatio;
-        this.selection.height *= zoomRatio;
+        this.selection.width = newWidth;
+        this.selection.height = newHeight;
         this.selection.x = centerX - this.selection.width / 2;
         this.selection.y = centerY - this.selection.height / 2;
         this.selection.zoom = newZoom;
@@ -297,44 +240,8 @@ class SelectionController {
      * @param {number} y - Y coordinate
      * @returns {string|null}
      */
-    getResizeHandle(x, y) {
-        const handleSize = this.constants.SELECTION.HANDLE_SIZE;
-        const sel = this.selection;
-        
-        // Check each corner
-        const handles = {
-            'nw': { x: sel.x, y: sel.y },
-            'ne': { x: sel.x + sel.width, y: sel.y },
-            'sw': { x: sel.x, y: sel.y + sel.height },
-            'se': { x: sel.x + sel.width, y: sel.y + sel.height }
-        };
-        
-        for (const [handle, pos] of Object.entries(handles)) {
-            if (Math.abs(x - pos.x) <= handleSize && Math.abs(y - pos.y) <= handleSize) {
-                return handle;
-            }
-        }
-        
-        return null;
-    }
-
-    /**
-     * Update cursor based on position
-     * @param {number} x - X coordinate
-     * @param {number} y - Y coordinate
-     */
     updateCursor(x, y) {
-        const handle = this.getResizeHandle(x, y);
-        
-        if (handle) {
-            const cursors = {
-                'nw': 'nw-resize',
-                'ne': 'ne-resize',
-                'sw': 'sw-resize',
-                'se': 'se-resize'
-            };
-            this.canvas.style.cursor = cursors[handle];
-        } else if (this.isInsideSelection(x, y)) {
+        if (this.isInsideSelection(x, y)) {
             this.canvas.style.cursor = 'move';
         } else {
             this.canvas.style.cursor = 'default';
@@ -345,45 +252,19 @@ class SelectionController {
      * Draw selection rectangle and handles
      */
     drawSelection() {
-        // Clear previous selection
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Draw selection rectangle
+
+        // Draw dark overlay over the entire canvas
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Clear the selection area, making it transparent to the video underneath
+        this.ctx.clearRect(this.selection.x, this.selection.y, this.selection.width, this.selection.height);
+
+        // Draw a border around the clear area
         this.ctx.strokeStyle = this.constants.SELECTION.BORDER_COLOR;
         this.ctx.lineWidth = this.constants.SELECTION.BORDER_WIDTH;
         this.ctx.strokeRect(this.selection.x, this.selection.y, this.selection.width, this.selection.height);
-        
-        // Draw handles
-        this.drawHandles();
-        
-        // Draw zoom indicator
-        this.drawZoomIndicator();
-    }
-
-    /**
-     * Draw resize handles
-     */
-    drawHandles() {
-        const handleSize = this.constants.SELECTION.HANDLE_SIZE;
-        const sel = this.selection;
-        
-        this.ctx.fillStyle = this.constants.SELECTION.BORDER_COLOR;
-        
-        const handles = [
-            { x: sel.x, y: sel.y }, // NW
-            { x: sel.x + sel.width, y: sel.y }, // NE
-            { x: sel.x, y: sel.y + sel.height }, // SW
-            { x: sel.x + sel.width, y: sel.y + sel.height } // SE
-        ];
-        
-        handles.forEach(handle => {
-            this.ctx.fillRect(
-                handle.x - handleSize / 2,
-                handle.y - handleSize / 2,
-                handleSize,
-                handleSize
-            );
-        });
     }
 
     /**

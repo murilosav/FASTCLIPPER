@@ -30,6 +30,7 @@
         "src/features/clipDetector.js",
         "src/features/twitchPopupManager.js",
         "src/services/videoDownloader.js",
+        "src/services/videoRenderer.js",
         "src/components/editor/selectionController.js",
         "src/components/editor/frameRecorder.js",
         "src/components/editor/previewRenderer.js",
@@ -55,7 +56,14 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["*.mp4", "src/components/editor/videoEditor.html", "src/components/popup/popup.html"],
+      "resources": [
+        "*.mp4", 
+        "src/components/editor/videoEditor.html", 
+        "src/components/popup/popup.html",
+        "src/libs/ffmpeg/ffmpeg-core.js",
+        "src/libs/ffmpeg/ffmpeg-core.wasm",
+        "src/libs/ffmpeg/ffmpeg-core.worker.js"
+      ],
       "matches": ["https://www.twitch.tv/*", "https://clips.twitch.tv/*", "https://*.twitchcdn.net/*"]
     }
   ]

@@ -43,6 +43,11 @@ class VideoEditor {
         this.handleRecord = this.handleRecord.bind(this);
         this.handleStop = this.handleStop.bind(this);
         this.handleExport = this.handleExport.bind(this);
+        this.animationFrameId = null;
+        this.renderer = new window.VideoRenderer();
+        this.trimStart = 0;
+        this.trimEnd = 0;
+        this.isTrimming = false;
     }
 
     /**
@@ -59,6 +64,15 @@ class VideoEditor {
             await this.createInterface();
             this.initializeModules();
             this.attachEventListeners();
+
+            // Load FFmpeg
+            try {
+                await this.renderer.load();
+            } catch (e) {
+                this.utils.Logger.error('FFmpeg failed to load.', e);
+                alert('Error: Could not load video rendering library. Exporting will be disabled.');
+                if (this.controls.export) this.controls.export.disabled = true;
+            }
 
             this.isInitialized = true;
             this.utils.Logger.info(this.constants.EDITOR_MESSAGES?.EDITOR_INITIALIZED || 'Video Editor initialized');
@@ -335,7 +349,8 @@ class VideoEditor {
             record: this.container.querySelector('.record-btn'),
             export: this.container.querySelector('.export-btn'),
             downloadOriginal: this.container.querySelector('.download-original-btn'),
-            close: this.container.querySelector('.editor-close-btn')
+            close: this.container.querySelector('.editor-close-btn'),
+            fullscreen: this.container.querySelector('#editor-fullscreen-btn')
         };
         
         // Get info elements
@@ -357,7 +372,10 @@ class VideoEditor {
             track: this.container.querySelector('.timeline-track'),
             progress: this.container.querySelector('.timeline-progress'),
             scrubber: this.container.querySelector('.timeline-scrubber'),
-            keyframesContainer: this.container.querySelector('.keyframes-container')
+            keyframesContainer: this.container.querySelector('.keyframes-container'),
+            selection: this.container.querySelector('.timeline-selection'),
+            trimStartHandle: this.container.querySelector('.trim-handle-start'),
+            trimEndHandle: this.container.querySelector('.trim-handle-end')
         };
         
         // Get preview container
@@ -452,6 +470,7 @@ class VideoEditor {
         this.controls.export?.addEventListener('click', this.handleExport);
         this.controls.downloadOriginal?.addEventListener('click', this.handleDownloadOriginal.bind(this));
         this.controls.close?.addEventListener('click', this.cleanup.bind(this));
+        this.controls.fullscreen?.addEventListener('click', this.toggleFullscreen.bind(this));
         
         // Timeline events
         this.timeline.track?.addEventListener('click', this.handleTimelineClick.bind(this));
@@ -467,6 +486,70 @@ class VideoEditor {
         this.dropZone?.addEventListener('dragover', this.handleDragOver.bind(this));
         this.dropZone?.addEventListener('dragleave', this.handleDragLeave.bind(this));
         this.dropZone?.addEventListener('drop', this.handleDrop.bind(this));
+
+        // Trimming events
+        this.timeline.trimStartHandle?.addEventListener('mousedown', this.handleTrimMouseDown.bind(this));
+        this.timeline.trimEndHandle?.addEventListener('mousedown', this.handleTrimMouseDown.bind(this));
+    }
+
+    /**
+     * Handle mouse down on a trim handle
+     */
+    handleTrimMouseDown(event) {
+        this.isTrimming = true;
+        this.activeTrimHandle = event.target.dataset.handle;
+        this.container.style.cursor = 'ew-resize';
+
+        const mouseMoveHandler = this.handleTrimMouseMove.bind(this);
+        const mouseUpHandler = this.handleTrimMouseUp.bind(this);
+
+        document.addEventListener('mousemove', mouseMoveHandler);
+        document.addEventListener('mouseup', () => {
+            document.removeEventListener('mousemove', mouseMoveHandler);
+            this.handleTrimMouseUp();
+        }, { once: true });
+    }
+
+    /**
+     * Handle mouse move when trimming
+     */
+    handleTrimMouseMove(event) {
+        if (!this.isTrimming) return;
+
+        const timelineRect = this.timeline.track.getBoundingClientRect();
+        const progress = (event.clientX - timelineRect.left) / timelineRect.width;
+        const newTime = Math.max(0, Math.min(this.duration, progress * this.duration));
+
+        if (this.activeTrimHandle === 'start' && newTime < this.trimEnd) {
+            this.trimStart = newTime;
+            this.sourceVideo.currentTime = this.trimStart;
+        } else if (this.activeTrimHandle === 'end' && newTime > this.trimStart) {
+            this.trimEnd = newTime;
+            this.sourceVideo.currentTime = this.trimEnd;
+        }
+        this.updateTimelineSelection();
+    }
+
+    /**
+     * Handle mouse up after trimming
+     */
+    handleTrimMouseUp() {
+        this.isTrimming = false;
+        this.activeTrimHandle = null;
+        this.container.style.cursor = 'default';
+    }
+
+    /**
+     * Update the visual timeline selection bar
+     */
+    updateTimelineSelection() {
+        const startPercent = (this.trimStart / this.duration) * 100;
+        const endPercent = (this.trimEnd / this.duration) * 100;
+
+        this.timeline.selection.style.left = `${startPercent}%`;
+        this.timeline.selection.style.width = `${endPercent - startPercent}%`;
+        this.timeline.trimStartHandle.style.left = `${startPercent}%`;
+        this.timeline.trimEndHandle.style.left = `${endPercent}%`; // Use left for end handle too
     }
 
     /**
@@ -743,10 +826,20 @@ class VideoEditor {
      * Handle video time updates
      */
     handleVideoTimeUpdate() {
+        // If current time is outside the trim range, loop back or pause
+        if (this.sourceVideo.currentTime >= this.trimEnd || this.sourceVideo.currentTime < this.trimStart) {
+            this.sourceVideo.currentTime = this.trimStart;
+            if (this.isPlaying) {
+                this.sourceVideo.pause();
+                this.isPlaying = false;
+                this.updatePlayPauseButton();
+                cancelAnimationFrame(this.animationFrameId);
+            }
+        }
+
         this.currentTime = this.sourceVideo.currentTime;
         this.updateTimeDisplay();
         this.updateTimelinePosition();
-        this.drawVideoFrame();
         
         // Update frame recorder time
         this.frameRecorder?.updateTime(this.currentTime);
@@ -757,6 +850,9 @@ class VideoEditor {
      */
     handleVideoLoadedMetadata() {
         this.duration = this.sourceVideo.duration;
+        this.trimStart = 0;
+        this.trimEnd = this.duration;
+        this.updateTimelineSelection();
         if (this.infoElements.duration) {
             this.infoElements.duration.textContent = `/ ${this.formatTime(this.duration)}`;
         }
@@ -768,6 +864,7 @@ class VideoEditor {
     handleVideoEnded() {
         this.isPlaying = false;
         this.updatePlayPauseButton();
+        cancelAnimationFrame(this.animationFrameId);
         
         // Stop recording if active
         if (this.frameRecorder?.getRecordingStatus()) {
@@ -782,9 +879,11 @@ class VideoEditor {
         if (this.isPlaying) {
             this.sourceVideo.pause();
             this.isPlaying = false;
+            cancelAnimationFrame(this.animationFrameId);
         } else {
             this.sourceVideo.play();
             this.isPlaying = true;
+            this.animationFrameId = requestAnimationFrame(this.renderLoop.bind(this));
         }
         
         this.updatePlayPauseButton();
@@ -798,6 +897,7 @@ class VideoEditor {
         this.sourceVideo.currentTime = 0;
         this.isPlaying = false;
         this.updatePlayPauseButton();
+        cancelAnimationFrame(this.animationFrameId);
         
         // Stop recording if active
         if (this.frameRecorder?.getRecordingStatus()) {
@@ -836,25 +936,54 @@ class VideoEditor {
      * Handle export button
      */
     async handleExport() {
+        if (!this.videoBlob) {
+            alert('Export is only available for uploaded videos. Please upload a video file first.');
+            return;
+        }
+
         try {
             this.currentMode = 'export';
             this.updateModeDisplay();
-            
-            const exportData = this.frameRecorder?.exportKeyframes();
-            
-            if (!exportData || exportData.totalKeyframes === 0) {
-                alert('No keyframes recorded. Please record some motion first.');
-                this.currentMode = 'preview';
-                this.updateModeDisplay();
+
+            const keyframes = this.frameRecorder?.exportKeyframes();
+            if (!keyframes || keyframes.totalKeyframes === 0) {
+                alert('No keyframes recorded. Please record motion or select a crop.');
                 return;
             }
+
+            const onProgress = ({ ratio, message }) => {
+                if (message) {
+                    this.updateDownloadProgress(message, ratio ? ratio * 100 : null);
+                } else if (ratio) {
+                    this.updateDownloadProgress(`Rendering... ${Math.round(ratio * 100)}%`, ratio * 100);
+                }
+            };
             
-            // Start export process
-            await this.exportVideo(exportData);
-            
+            this.showDownloadProgress('Starting render...');
+
+            const renderedFile = await this.renderer.render(
+                this.videoBlob, 
+                keyframes, 
+                onProgress,
+                this.trimStart,
+                this.trimEnd
+            );
+
+            this.hideDownloadProgress();
+
+            // Download the rendered file
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(renderedFile);
+            a.download = renderedFile.name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+
         } catch (error) {
             this.utils.Logger.error('Export failed:', error);
-            alert('Export failed. Please try again.');
+            alert(`Export failed: ${error.message}`);
+            this.hideDownloadProgress();
         } finally {
             this.currentMode = 'preview';
             this.updateModeDisplay();
@@ -993,8 +1122,19 @@ class VideoEditor {
             'export': 'Exporting...'
         };
         
-        if (this.infoElements.modeText) {
-            this.infoElements.modeText.textContent = modeNames[this.currentMode] || 'Unknown Mode';
+        this.updateModeDisplay();
+    }
+
+    /**
+     * Toggle fullscreen mode for the editor container
+     */
+    toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            this.container.requestFullscreen().catch(err => {
+                alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+            });
+        } else {
+            document.exitFullscreen();
         }
     }
 
@@ -1182,6 +1322,21 @@ This is a demo - actual video export functionality would be implemented here.`);
         this.hideDownloadProgress();
         
         this.isInitialized = false;
+    }
+
+    /**
+     * Main render loop for smooth animations
+     */
+    renderLoop() {
+        if (!this.isPlaying) {
+            return;
+        }
+
+        this.drawVideoFrame();
+        this.selectionController?.drawSelection();
+        this.previewRenderer?.render();
+
+        this.animationFrameId = requestAnimationFrame(this.renderLoop.bind(this));
     }
 
     showDownloadProgress(message) { /* código acima */ }

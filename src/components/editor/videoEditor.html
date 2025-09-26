@@ -10,6 +10,9 @@
                         <span class="mode-text">Preview Mode</span>
                         <div class="recording-indicator hidden">🔴 REC</div>
                     </div>
+                    <button class="editor-fullscreen-btn" id="editor-fullscreen-btn" title="Toggle Fullscreen">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                    </button>
                     <button class="editor-close-btn" id="editor-close-btn" title="Close Editor">×</button>
                 </div>
             </div>
@@ -48,6 +51,9 @@
                     <div class="editor-timeline-container">
                         <div class="${this.cssClasses.TIMELINE}">
                             <div class="timeline-track">
+                                <div class="timeline-selection"></div>
+                                <div class="trim-handle trim-handle-start" data-handle="start"></div>
+                                <div class="trim-handle trim-handle-end" data-handle="end"></div>
                                 <div class="timeline-progress"></div>
                                 <div class="timeline-scrubber"></div>
                                 <div class="keyframes-container"></div>

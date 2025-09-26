@@ -24,7 +24,6 @@ class PreviewRenderer {
         this.utils = window.TWITCH_CLIP_EDITOR_UTILS;
         
         this.initializeCanvas();
-        this.startRendering();
     }
 
     /**
@@ -58,159 +57,50 @@ class PreviewRenderer {
     }
 
     /**
-     * Start rendering loop
-     */
-    startRendering() {
-        if (this.isRendering) return;
-        
-        this.isRendering = true;
-        this.renderLoop();
-    }
-
-    /**
-     * Stop rendering loop
-     */
-    stopRendering() {
-        this.isRendering = false;
-        
-        if (this.animationFrameId) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
-        }
-    }
-
-    /**
-     * Main rendering loop
-     */
-    renderLoop() {
-        if (!this.isRendering) return;
-        
-        this.renderFrame();
-        this.animationFrameId = requestAnimationFrame(() => this.renderLoop());
-    }
-
-    /**
      * Render single frame
      */
-    renderFrame() {
-        if (!this.currentSelection || !this.sourceVideo) {
+    render() {
+        if (!this.currentSelection || !this.sourceVideo || this.sourceVideo.videoWidth === 0) {
             this.clearCanvas();
             return;
         }
-        
-        // Get video dimensions
-        const videoWidth = this.sourceVideo.videoWidth || this.sourceVideo.width;
-        const videoHeight = this.sourceVideo.videoHeight || this.sourceVideo.height;
-        
-        if (videoWidth === 0 || videoHeight === 0) {
-            this.clearCanvas();
-            return;
-        }
-        
-        // Calculate source area from selection
-        const sourceArea = this.calculateSourceArea(videoWidth, videoHeight);
-        
-        // Render cropped area to preview
-        this.renderCroppedArea(sourceArea, videoWidth, videoHeight);
-    }
 
-    /**
-     * Calculate source area from current selection
-     * @param {number} videoWidth - Source video width
-     * @param {number} videoHeight - Source video height
-     * @returns {Object} Source area coordinates
-     */
-    calculateSourceArea(videoWidth, videoHeight) {
-        const selection = this.currentSelection;
-        
-        // Get scale factors (assuming landscape canvas shows full video)
-        const canvasWidth = this.constants.CANVAS.MAX_WIDTH;
-        const canvasHeight = this.constants.CANVAS.MAX_HEIGHT;
-        
-        // Calculate aspect ratios to determine how video fits in canvas
-        const videoAspect = videoWidth / videoHeight;
-        const canvasAspect = canvasWidth / canvasHeight;
-        
-        let scaleX, scaleY, offsetX = 0, offsetY = 0;
-        
-        if (videoAspect > canvasAspect) {
-            // Video is wider - fit to canvas width
-            scaleX = scaleY = videoWidth / canvasWidth;
-            offsetY = (canvasHeight - videoHeight / scaleY) / 2;
-        } else {
-            // Video is taller - fit to canvas height
-            scaleX = scaleY = videoHeight / canvasHeight;
-            offsetX = (canvasWidth - videoWidth / scaleX) / 2;
-        }
-        
-        // Convert selection coordinates to video coordinates
-        const sourceX = Math.max(0, (selection.x - offsetX) * scaleX);
-        const sourceY = Math.max(0, (selection.y - offsetY) * scaleY);
-        const sourceWidth = Math.min(videoWidth - sourceX, selection.width * scaleX);
-        const sourceHeight = Math.min(videoHeight - sourceY, selection.height * scaleY);
-        
-        return {
-            x: sourceX,
-            y: sourceY,
-            width: Math.max(1, sourceWidth),
-            height: Math.max(1, sourceHeight)
-        };
-    }
+        const { videoWidth, videoHeight } = this.sourceVideo;
+        const mainCanvas = this.editor.landscapeCanvas;
 
-    /**
-     * Render cropped area to preview canvas
-     * @param {Object} sourceArea - Source area to crop
-     * @param {number} videoWidth - Source video width
-     * @param {number} videoHeight - Source video height
-     */
-    renderCroppedArea(sourceArea, videoWidth, videoHeight) {
-        // Clear preview canvas
+        // Calculate the scaling factor between the video and the canvas it's displayed on.
+        // This accounts for letterboxing if the video's aspect ratio is different from the canvas's.
+        const scale = Math.min(mainCanvas.width / videoWidth, mainCanvas.height / videoHeight);
+        
+        // Calculate the rendered video's dimensions and position on the main canvas
+        const renderedVideoWidth = videoWidth * scale;
+        const renderedVideoHeight = videoHeight * scale;
+        const offsetX = (mainCanvas.width - renderedVideoWidth) / 2;
+        const offsetY = (mainCanvas.height - renderedVideoHeight) / 2;
+
+        // Translate the selection coordinates (which are relative to the canvas)
+        // to be relative to the video itself.
+        const sourceX = (this.currentSelection.x - offsetX) / scale;
+        const sourceY = (this.currentSelection.y - offsetY) / scale;
+        const sourceWidth = this.currentSelection.width / scale;
+        const sourceHeight = this.currentSelection.height / scale;
+
+        // Clear the preview canvas and draw the calculated source area from the video
         this.previewCtx.clearRect(0, 0, this.previewCanvas.width, this.previewCanvas.height);
-        
-        // Set temp canvas size to match source area
-        this.tempCanvas.width = sourceArea.width;
-        this.tempCanvas.height = sourceArea.height;
-        
         try {
-            // Draw cropped area to temp canvas
-            this.tempCtx.drawImage(
-                this.sourceVideo,
-                sourceArea.x, sourceArea.y, sourceArea.width, sourceArea.height,
-                0, 0, sourceArea.width, sourceArea.height
-            );
-            
-            // Calculate how to fit cropped area into 9:16 preview
-            const previewAspect = 9 / 16;
-            const sourceAspect = sourceArea.width / sourceArea.height;
-            
-            let drawWidth, drawHeight, drawX, drawY;
-            
-            if (sourceAspect > previewAspect) {
-                // Source is wider - fit to preview height
-                drawHeight = this.previewCanvas.height;
-                drawWidth = drawHeight * sourceAspect;
-                drawX = (this.previewCanvas.width - drawWidth) / 2;
-                drawY = 0;
-            } else {
-                // Source is taller - fit to preview width
-                drawWidth = this.previewCanvas.width;
-                drawHeight = drawWidth / sourceAspect;
-                drawX = 0;
-                drawY = (this.previewCanvas.height - drawHeight) / 2;
-            }
-            
-            // Draw to preview canvas with proper scaling
             this.previewCtx.drawImage(
-                this.tempCanvas,
-                0, 0, sourceArea.width, sourceArea.height,
-                drawX, drawY, drawWidth, drawHeight
+                this.sourceVideo,
+                sourceX,
+                sourceY,
+                sourceWidth,
+                sourceHeight,
+                0, // Draw at the top-left corner of the preview canvas
+                0,
+                this.previewCanvas.width, // Stretch to fill the preview canvas
+                this.previewCanvas.height
             );
-            
-            // Add frame border
-            this.drawPreviewFrame();
-            
-        } catch (error) {
-            this.utils.Logger.warn('Error rendering preview frame:', error);
+        } catch (e) {
+            this.utils.Logger.warn('Error drawing preview frame:', e);
             this.drawErrorState();
         }
     }
